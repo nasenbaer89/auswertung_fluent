@@ -54,59 +54,52 @@ std::vector<double> read_file(std::string filename) {
     std::regex regex_outlet("pressure-outlet");
     std::smatch match;
     if (file.is_open()) {
-        const int buff_size = 1024;
-        char buffer[1024];
-        line_type t_line, t_last_line;
+        line_type t_line;
         bool has_reverse_flow_inlet = false;
         bool has_reverse_flow_outlet = false;
         bool has_turb_visc_limited = false;
-        t_last_line = t_empty;
-        
+        t_line = t_empty;
+        bool data_part = false;
         // Skip header
-        while (file.good()) {
-            file.getline(buffer, buff_size);
-            std::string line_string{buffer};
-            if (line_string.substr(0, 9) == "/solve it")
-                break;
-        }
-        while (file.good()) {
-            file.getline(buffer, buff_size);
-            std::string line_string{buffer};
-            if (line_string.substr(0, 21) == "/file write-case-data")
-                break;
-            if (t_last_line == t_unknown) {
-                has_reverse_flow_inlet = false;
-                has_reverse_flow_outlet = false;
-                has_turb_visc_limited = false;
-            }
+        for (std::string line_string; std::getline(file, line_string); ) {
             line_string.erase( std::remove( line_string.begin(), line_string.end(), '\r' ), line_string.end() );
             if (!line_string.empty()){
-                t_line = get_line_type(line_string);
-                switch (t_line) {
-                    case t_turb_visc_limited :
-                        has_turb_visc_limited = true;
+                if ((!data_part) && (line_string.substr(0, 9) == "/solve it"))
+                    data_part = true;
+                else if (data_part) {
+                    if (line_string.substr(0, 21) == "/file write-case-data")
                         break;
-                    case t_reverse_flow :
-                        if (std::regex_search(line_string, regex_inlet)) {
-                            has_reverse_flow_inlet = true;
-                        }
-                        if (std::regex_search(line_string, regex_outlet))
-                            has_reverse_flow_outlet = true;
-                        break;
-                    case t_unknown :
-                        data = parse_items(line_string);
-                        for (auto dat : data)
-                            std::cout << std::fixed << std::setprecision(6) << dat << " ";
-                        std::cout << std::endl;
-                        break;
-                    case t_header :
-                        if (header.empty()) {
-                            header = parse_header(line_string);
-                        }
-                    case t_empty : ;
+                    if (t_line == t_unknown) {
+                        has_reverse_flow_inlet = false;
+                        has_reverse_flow_outlet = false;
+                        has_turb_visc_limited = false;
+                    }
+                    t_line = get_line_type(line_string);
+                    switch (t_line) {
+                        case t_turb_visc_limited :
+                            has_turb_visc_limited = true;
+                            break;
+                        case t_reverse_flow :
+                            if (std::regex_search(line_string, regex_inlet)) {
+                                has_reverse_flow_inlet = true;
+                            }
+                            if (std::regex_search(line_string, regex_outlet))
+                                has_reverse_flow_outlet = true;
+                            break;
+                        case t_unknown :
+                            data = parse_items(line_string);
+                            for (auto dat : data)
+                                std::cout << std::fixed << std::setprecision(6) << dat << " ";
+                            std::cout << std::endl;
+                            break;
+                        case t_header :
+                            if (header.empty()) {
+                                header = parse_header(line_string);
+                            }
+                        case t_empty : ;
+                    }
                 }
             }
-            t_last_line = t_line;
         }
         std::cout << "has_reverse_flow_inlet: " << has_reverse_flow_inlet << "; has_reverse_flow_outlet: " << has_reverse_flow_outlet << "; has_turb_visc_limited: " << has_turb_visc_limited << std::endl;
         file.close();
