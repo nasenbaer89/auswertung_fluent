@@ -137,17 +137,24 @@ int main(int argc, char **argv) {
     double length = 0.8;
     double rho = 1.225;
     double Durchmesser = 0.8;
+    double b_E = 1.25;
+    double b_A = 0.5;
     int column = 5;
-    std::ofstream outfile;
-    outfile.open("results.out", std::ios::out);
-    outfile << "Länge" << delim << "rho" << delim << "Durchmesser" << std::endl;
-    outfile << length << delim << rho << delim << Durchmesser << "\n" << std::endl;
-    outfile << "Gauge Pressure" << delim << "Drehzahl" << delim << "Anzahl Iterationen" << delim << "continuity" << delim << "x-velocity" << delim << "y-velocity"<< delim << "k" << delim << "epsilon" << delim
-            << "Cm-1" << delim << "volumenstrom pro meter" << delim << delim << "pst_inlet" << delim << "ptot_inlet" << delim << "pst_outlet" << delim << "ptot_outlet" << delim << "deltap_fa" << delim 
-            << "u2" << delim << "Lieferzahl" << delim << "Druckzahl" << delim << "Druckzahl_fa" << delim << std::endl;
     std::regex regex_pressure ("([0-9]+)Pa");
     std::regex regex_rpm ("([0-9]+)rpm");
+    std::regex regex_testing_nr("(RV[0-9]+)");
     std::smatch str_match;
+    std::string testing_nr;
+    if (std::regex_search(infiles.front(), str_match, regex_testing_nr))
+        testing_nr = str_match[1];
+    std::ofstream outfile;
+    outfile.open(testing_nr + "_results.txt", std::ios::out);
+    outfile << "Länge" << delim << "rho" << delim << "Durchmesser" << delim << "b_E / m" << delim << "b_A / m"<< std::endl;
+    outfile << length << delim << rho << delim << Durchmesser << delim << b_E << delim << b_A << "\n" << std::endl;
+    outfile << "Gauge Pressure" << delim << "Drehzahl" << delim << "Anzahl Iter" << delim << "continuity" << delim << "x-velocity" << delim << "y-velocity"<< delim << "k" << delim << "epsilon" << delim
+            << "Cm-1" << delim << "V\u0307 pro meter" << delim << "V\u0307" << delim << "pst_E" << delim << "pt_E" << delim << "pt_E(pst_E+pd_E)" << delim << "pst_A" << delim << "pt_A" << delim
+            << "\u0394p_fa" << delim << "\u0394p_t(\u0394p_fa+pd_A)" << delim << "\u0394p_t" << delim 
+            << "u2" << delim << "Lieferzahl" << delim << "Druckzahl" << delim << "Druckzahl_fa" << delim << std::endl;
     for (auto file : infiles) {
         std::string pressure, rpm;
         double gauge_pressure = 0;
@@ -167,16 +174,20 @@ int main(int argc, char **argv) {
 				outfile << data[i] << delim;
 				//std::cout << "test" << std::endl;
 				if (i == data.size() - 7)
-					outfile << "=J" << column << "*$A$2" << delim;
+					outfile << "=-J" << column << "*$A$2" << delim;
+                else if (i == data.size() - 5)
+                    outfile << "=-L" << column << "-$B$2/2*(J" << column << "/ $D$2)^2" << delim;
 			}
 		} else {
 			std::cout << "size: " << data.size() << " " << data[0] << std::endl;
 		}
-        outfile << data[data.size() - 3 - 1] - data[data.size() - 3 - 3] << delim;
+        outfile << "=-M" << column << delim;
+        outfile << "=Q" << column << "+$B$2/2*(J" << column << "/ $E$2)^2" << delim;
+        outfile << "=P" << column << "-M" << column << delim;
         outfile << "=$C$2*PI()*B" << column << "/60" << delim;
-        outfile << "=-1*k" << column << "/(Q" << column << "*$C$2*$A$2)" << delim;
-        outfile << "=O" << column << "/($B$2/2*Q" << column << "^2)" << delim;
-        outfile << "=P" << column << "/($B$2/2*Q" << column << "^2)" << delim;
+        outfile << "=k" << column << "/(T" << column << "*$C$2*$A$2)" << delim;
+        outfile << "=R" << column << "/($B$2/2*T" << column << "^2)" << delim;
+        outfile << "=Q" << column << "/($B$2/2*T" << column << "^2)" << delim;
         outfile << std::endl;
         column++;
     }
